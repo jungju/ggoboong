@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	"ggo/internal/config"
-	"ggo/internal/githubapp"
-	"ggo/internal/githubissue"
+	"github.com/jungju/ggoboong/internal/config"
+	"github.com/jungju/ggoboong/internal/githubapp"
+	"github.com/jungju/ggoboong/internal/githubissue"
 )
 
 type Options struct {

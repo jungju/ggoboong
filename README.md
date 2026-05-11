@@ -15,6 +15,18 @@
 
 ## 설치
 
+Go가 설치되어 있다면 `go install`로 바로 설치할 수 있습니다.
+
+```bash
+go install github.com/jungju/ggoboong/cmd/ggo@latest
+```
+
+설치된 바이너리는 보통 `~/go/bin/ggo`에 생깁니다. `ggo` 명령이 바로 실행되지 않으면 `~/go/bin`을 `PATH`에 추가합니다.
+
+```bash
+export PATH="$HOME/go/bin:$PATH"
+```
+
 이 저장소에서 설치 스크립트를 실행하면 `ggo`를 빌드해서 `~/.local/bin/ggo`로 복사합니다.
 
 ```bash

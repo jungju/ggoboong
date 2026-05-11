@@ -11,7 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"gopkg.in/yaml.v3"
 
-	"ggo/internal/config"
+	"github.com/jungju/ggoboong/internal/config"
 )
 
 const privateKeyFileName = "github-app.private-key.pem"

@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"ggo/internal/envfile"
-	"ggo/internal/runner"
-	"ggo/internal/setup"
+	"github.com/jungju/ggoboong/internal/envfile"
+	"github.com/jungju/ggoboong/internal/runner"
+	"github.com/jungju/ggoboong/internal/setup"
 )
 
 func main() {

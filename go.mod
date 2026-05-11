@@ -1,4 +1,4 @@
-module ggo
+module github.com/jungju/ggoboong
 
 go 1.22
 

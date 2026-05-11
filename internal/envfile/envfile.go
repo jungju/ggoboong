@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"ggo/internal/config"
+	"github.com/jungju/ggoboong/internal/config"
 )
 
 func LoadDefault() error {
