@@ -8,7 +8,8 @@ BIN_PATH="$BIN_DIR/ggo"
 cd "$ROOT_DIR"
 
 echo "building ggo..."
-go build -o ggo ./cmd/ggo
+VERSION="${GGO_VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo dev)}"
+go build -ldflags "-X main.version=$VERSION" -o ggo ./cmd/ggo
 
 mkdir -p "$BIN_DIR"
 cp "$ROOT_DIR/ggo" "$BIN_PATH"

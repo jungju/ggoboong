@@ -22,10 +22,18 @@ Go가 설치되어 있다면 `go install`로 바로 설치할 수 있습니다.
 go install github.com/jungju/ggoboong/cmd/ggo@latest
 ```
 
+새 버전은 `v0.1.0` 같은 Git tag로 배포합니다. 이미 설치한 뒤에도 같은 명령을 다시 실행하면 Go module 기준의 최신 tag 버전으로 업데이트됩니다.
+
 설치된 바이너리는 보통 `~/go/bin/ggo`에 생깁니다. `ggo` 명령이 바로 실행되지 않으면 `~/go/bin`을 `PATH`에 추가합니다.
 
 ```bash
 export PATH="$HOME/go/bin:$PATH"
+```
+
+설치된 버전은 `--version`으로 확인합니다.
+
+```bash
+ggo --version
 ```
 
 이 저장소에서 설치 스크립트를 실행하면 `ggo`를 빌드해서 `~/.local/bin/ggo`로 복사합니다.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/spf13/cobra"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/jungju/ggoboong/internal/runner"
 	"github.com/jungju/ggoboong/internal/setup"
 )
+
+var version = "dev"
 
 func main() {
 	if err := envfile.LoadDefault(); err != nil {
@@ -28,9 +31,11 @@ func newRootCommand() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:           "ggo",
 		Short:         "GitHub App based issue comment bot",
+		Version:       currentVersion(),
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
+	rootCmd.SetVersionTemplate("ggo {{.Version}}\n")
 
 	var opts runner.Options
 	runCmd := &cobra.Command{
@@ -83,4 +88,20 @@ func newRootCommand() *cobra.Command {
 
 	rootCmd.AddCommand(runCmd, issuesCmd, loginCmd)
 	return rootCmd
+}
+
+func currentVersion() string {
+	if version != "" && version != "dev" {
+		return version
+	}
+
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return version
+	}
+	if info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+
+	return version
 }
