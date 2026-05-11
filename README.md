@@ -11,6 +11,7 @@
 - CLI 실행 시 issue comments 조회
 - 중복 댓글을 피하기 위해 이미 남긴 `ggo` 댓글이 있으면 중단
 - 고정 답변 댓글 작성
+- tag/label로 issue 검색
 - `--dry-run`이면 실제 작성 없이 댓글 본문만 출력
 
 ## 설치
@@ -152,6 +153,32 @@ ggo run --owner my-org --repo my-repo --issue 123
 
 ```bash
 ggo run --owner my-org --repo my-repo --issue 123 --config ./ggo.yaml
+```
+
+## 이슈 검색
+
+GitHub issue의 label을 태그처럼 사용해서 issue를 찾을 수 있습니다. `--tag`와 `--label`은 같은 뜻입니다.
+
+```bash
+ggo issues --owner my-org --repo my-repo --tag bug
+```
+
+여러 tag를 모두 가진 issue만 찾으려면 `--tag`를 반복합니다.
+
+```bash
+ggo issues --owner my-org --repo my-repo --tag bug --tag "help wanted"
+```
+
+특정 tag가 없는 issue만 찾으려면 `--without-tag`를 사용합니다.
+
+```bash
+ggo issues --owner my-org --repo my-repo --tag bug --without-tag done
+```
+
+상태는 기본이 `open`이고, `closed`나 `all`도 사용할 수 있습니다.
+
+```bash
+ggo issues --owner my-org --repo my-repo --state all --without-tag archived
 ```
 
 ## 댓글 중복 방지

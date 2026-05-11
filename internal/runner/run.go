@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/jungju/ggoboong/internal/config"
-	"github.com/jungju/ggoboong/internal/githubapp"
 	"github.com/jungju/ggoboong/internal/githubissue"
 )
 
@@ -41,18 +40,11 @@ func Run(ctx context.Context, opts Options) error {
 
 	dryRun := cfg.Bot.DryRun || opts.DryRun
 
-	appJWT, err := githubapp.GenerateJWT(cfg.GitHub.AppID, cfg.GitHub.PrivateKeyPath)
+	issueClient, err := newIssueClient(ctx, cfg, opts.HTTPClient)
 	if err != nil {
-		return fmt.Errorf("generate GitHub App JWT: %w", err)
+		return err
 	}
 
-	appClient := githubapp.NewClient(opts.HTTPClient)
-	token, err := appClient.CreateInstallationToken(ctx, cfg.GitHub.InstallationID, appJWT)
-	if err != nil {
-		return fmt.Errorf("create installation access token: %w", err)
-	}
-
-	issueClient := githubissue.NewClient(opts.HTTPClient, token)
 	issue, err := issueClient.GetIssue(ctx, opts.Owner, opts.Repo, opts.Issue)
 	if err != nil {
 		return fmt.Errorf("get issue: %w", err)

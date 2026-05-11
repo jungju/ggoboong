@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 )
 
 const DefaultAPIBaseURL = "https://api.github.com"
@@ -28,10 +30,22 @@ func NewClient(httpClient *http.Client, token string) *Client {
 }
 
 type Issue struct {
-	Number int    `json:"number"`
-	Title  string `json:"title"`
-	State  string `json:"state"`
-	URL    string `json:"html_url"`
+	Number      int       `json:"number"`
+	Title       string    `json:"title"`
+	State       string    `json:"state"`
+	URL         string    `json:"html_url"`
+	Labels      []Label   `json:"labels"`
+	PullRequest *struct{} `json:"pull_request,omitempty"`
+}
+
+type Label struct {
+	Name string `json:"name"`
+}
+
+type ListIssuesOptions struct {
+	State         string
+	Labels        []string
+	WithoutLabels []string
 }
 
 func (c *Client) GetIssue(ctx context.Context, owner, repo string, number int) (*Issue, error) {
@@ -64,4 +78,113 @@ func (c *Client) GetIssue(ctx context.Context, owner, repo string, number int) (
 	}
 
 	return &issue, nil
+}
+
+func (c *Client) ListIssues(ctx context.Context, owner, repo string, opts ListIssuesOptions) ([]Issue, error) {
+	state := opts.State
+	if state == "" {
+		state = "open"
+	}
+
+	var allIssues []Issue
+	for page := 1; ; page++ {
+		query := url.Values{}
+		query.Set("state", state)
+		query.Set("per_page", "100")
+		query.Set("page", fmt.Sprintf("%d", page))
+		if len(opts.Labels) > 0 {
+			query.Set("labels", strings.Join(opts.Labels, ","))
+		}
+
+		url := fmt.Sprintf("%s/repos/%s/%s/issues?%s", c.baseURL, owner, repo, query.Encode())
+		req, err := c.newRequest(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("create list issues request: %w", err)
+		}
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("request issues: %w", err)
+		}
+
+		body, readErr := io.ReadAll(resp.Body)
+		closeErr := resp.Body.Close()
+		if closeErr != nil && readErr == nil {
+			readErr = closeErr
+		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			if readErr != nil {
+				return nil, fmt.Errorf("request issues failed with status %s and unreadable response body: %w", resp.Status, readErr)
+			}
+			return nil, fmt.Errorf("request issues failed with status %s: %s", resp.Status, string(body))
+		}
+		if readErr != nil {
+			return nil, fmt.Errorf("read issues response: %w", readErr)
+		}
+
+		var issues []Issue
+		if err := json.Unmarshal(body, &issues); err != nil {
+			return nil, fmt.Errorf("parse issues response: %w", err)
+		}
+
+		for _, issue := range issues {
+			if issue.PullRequest != nil {
+				continue
+			}
+			if !hasAllLabels(issue.Labels, opts.Labels) {
+				continue
+			}
+			if hasAnyLabel(issue.Labels, opts.WithoutLabels) {
+				continue
+			}
+			allIssues = append(allIssues, issue)
+		}
+
+		if len(issues) < 100 {
+			break
+		}
+	}
+
+	return allIssues, nil
+}
+
+func hasAllLabels(labels []Label, names []string) bool {
+	if len(names) == 0 {
+		return true
+	}
+	if len(labels) == 0 {
+		return false
+	}
+
+	actual := make(map[string]struct{}, len(labels))
+	for _, label := range labels {
+		actual[strings.ToLower(label.Name)] = struct{}{}
+	}
+
+	for _, name := range names {
+		if _, ok := actual[strings.ToLower(name)]; !ok {
+			return false
+		}
+	}
+
+	return true
+}
+
+func hasAnyLabel(labels []Label, names []string) bool {
+	if len(labels) == 0 || len(names) == 0 {
+		return false
+	}
+
+	wanted := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		wanted[strings.ToLower(name)] = struct{}{}
+	}
+
+	for _, label := range labels {
+		if _, ok := wanted[strings.ToLower(label.Name)]; ok {
+			return true
+		}
+	}
+
+	return false
 }
