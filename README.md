@@ -2,15 +2,15 @@
 
 `ggo`는 GitHub 이것저것 처리해주는 꼬붕 CLI입니다.
 
-지금은 아주 단순합니다. GitHub issue를 읽고, 아직 `ggo`가 답변한 적이 없으면 정해진 댓글을 하나 남깁니다. LLM, DB, 서버, Webhook, OAuth는 아직 없습니다.
+지금은 아주 단순합니다. 사용자가 CLI를 실행해서 특정 GitHub issue를 읽고, CLI를 통해 정해진 댓글을 남깁니다. 스스로 issue를 감시하거나 알아서 답변하지 않습니다. LLM, DB, 서버, Webhook, OAuth는 아직 없습니다.
 
 ## 지금 하는 일
 
 - GitHub App installation token으로 인증
-- issue 조회
-- issue comments 조회
-- 이미 남긴 `ggo` 댓글이 있으면 중단
-- 없으면 고정 답변 댓글 작성
+- CLI 실행 시 지정한 issue 조회
+- CLI 실행 시 issue comments 조회
+- 중복 댓글을 피하기 위해 이미 남긴 `ggo` 댓글이 있으면 중단
+- 고정 답변 댓글 작성
 - `--dry-run`이면 실제 작성 없이 댓글 본문만 출력
 
 ## 설치
