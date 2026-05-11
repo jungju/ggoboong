@@ -245,6 +245,10 @@ ggo issues --owner my-org --repo my-repo --state all --without-tag archived
 ggo comment --owner my-org --repo my-repo --issue 123 --body-file /tmp/comment.md
 ```
 
+아래처럼 `ggoboong` GitHub App 계정으로 실제 issue thread에 댓글이 남습니다.
+
+![ggoboong GitHub issue comment sample](docs/images/ggoboong-comment-sample.png)
+
 마지막 댓글이 이미 특정 GitHub 아이디가 남긴 댓글이면 중복 작성을 건너뛰려면 `--skip-if-last-commenter`를 사용합니다.
 
 ```bash
