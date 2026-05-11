@@ -7,8 +7,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const DefaultAPIBaseURL = "https://api.github.com"
@@ -31,13 +33,16 @@ func NewClient(httpClient *http.Client, token string) *Client {
 }
 
 type Issue struct {
-	Number      int       `json:"number"`
-	Title       string    `json:"title"`
-	State       string    `json:"state"`
-	URL         string    `json:"html_url"`
-	Labels      []Label   `json:"labels"`
-	Comments    int       `json:"comments"`
-	PullRequest *struct{} `json:"pull_request,omitempty"`
+	Number         int       `json:"number"`
+	Title          string    `json:"title"`
+	State          string    `json:"state"`
+	URL            string    `json:"html_url"`
+	Labels         []Label   `json:"labels"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	CommentCount   int       `json:"comments"`
+	LastComment    *Comment  `json:"-"`
+	LoadedComments []Comment `json:"-"`
+	PullRequest    *struct{} `json:"pull_request,omitempty"`
 }
 
 type Label struct {
@@ -45,11 +50,16 @@ type Label struct {
 }
 
 type ListIssuesOptions struct {
-	State            string
-	Labels           []string
-	WithoutLabels    []string
-	Limit            int
-	LastCommenterNot string
+	State               string
+	Labels              []string
+	WithoutLabels       []string
+	Limit               int
+	UpdatedAfter        time.Time
+	IncludeLastComment  bool
+	IncludeComments     bool
+	LastCommenterNot    string
+	LastCommentContains string
+	LastCommentMatches  string
 }
 
 func (c *Client) GetIssue(ctx context.Context, owner, repo string, number int) (*Issue, error) {
@@ -88,6 +98,10 @@ func (c *Client) ListIssues(ctx context.Context, owner, repo string, opts ListIs
 	if opts.Limit < 0 {
 		return nil, fmt.Errorf("limit must be 0 or greater")
 	}
+	lastCommentPattern, err := compileLastCommentPattern(opts.LastCommentMatches)
+	if err != nil {
+		return nil, err
+	}
 
 	state := opts.State
 	if state == "" {
@@ -95,6 +109,8 @@ func (c *Client) ListIssues(ctx context.Context, owner, repo string, opts ListIs
 	}
 
 	lastCommenterNot := strings.TrimSpace(opts.LastCommenterNot)
+	lastCommentContains := strings.TrimSpace(opts.LastCommentContains)
+	needsLastComment := opts.IncludeLastComment || opts.IncludeComments || lastCommenterNot != "" || lastCommentContains != "" || lastCommentPattern != nil
 	perPage := perPageForLimit(opts.Limit)
 
 	var allIssues []Issue
@@ -105,6 +121,9 @@ func (c *Client) ListIssues(ctx context.Context, owner, repo string, opts ListIs
 		query.Set("page", fmt.Sprintf("%d", page))
 		if len(opts.Labels) > 0 {
 			query.Set("labels", strings.Join(opts.Labels, ","))
+		}
+		if !opts.UpdatedAfter.IsZero() {
+			query.Set("since", opts.UpdatedAfter.UTC().Format(time.RFC3339))
 		}
 
 		url := fmt.Sprintf("%s/repos/%s/%s/issues?%s", c.baseURL, owner, repo, query.Encode())
@@ -148,14 +167,19 @@ func (c *Client) ListIssues(ctx context.Context, owner, repo string, opts ListIs
 			if hasAnyLabel(issue.Labels, opts.WithoutLabels) {
 				continue
 			}
-			if lastCommenterNot != "" {
-				matches, err := c.lastCommenterMatches(ctx, owner, repo, issue, lastCommenterNot)
-				if err != nil {
+			if needsLastComment {
+				if err := c.loadIssueComments(ctx, owner, repo, &issue, opts.IncludeComments); err != nil {
 					return nil, err
 				}
-				if matches {
-					continue
-				}
+			}
+			if lastCommenterNot != "" && issue.LastComment != nil && LoginMatches(issue.LastComment.User.Login, lastCommenterNot) {
+				continue
+			}
+			if lastCommentContains != "" && (issue.LastComment == nil || !strings.Contains(issue.LastComment.Body, lastCommentContains)) {
+				continue
+			}
+			if lastCommentPattern != nil && (issue.LastComment == nil || !lastCommentPattern.MatchString(issue.LastComment.Body)) {
+				continue
 			}
 			allIssues = append(allIssues, issue)
 			if opts.Limit > 0 && len(allIssues) >= opts.Limit {
@@ -171,21 +195,37 @@ func (c *Client) ListIssues(ctx context.Context, owner, repo string, opts ListIs
 	return allIssues, nil
 }
 
-func (c *Client) lastCommenterMatches(ctx context.Context, owner, repo string, issue Issue, login string) (bool, error) {
-	if issue.Comments == 0 {
-		return false, nil
+func (c *Client) loadIssueComments(ctx context.Context, owner, repo string, issue *Issue, includeComments bool) error {
+	if issue.CommentCount == 0 {
+		if includeComments {
+			issue.LoadedComments = []Comment{}
+		}
+		return nil
 	}
 
-	comments, err := c.listCommentsPage(ctx, owner, repo, issue.Number, commentPageForCount(issue.Comments))
+	if includeComments {
+		comments, err := c.ListComments(ctx, owner, repo, issue.Number)
+		if err != nil {
+			return err
+		}
+		issue.LoadedComments = comments
+		if len(issue.LoadedComments) > 0 {
+			issue.LastComment = &issue.LoadedComments[len(issue.LoadedComments)-1]
+		}
+		return nil
+	}
+
+	comments, err := c.listCommentsPage(ctx, owner, repo, issue.Number, commentPageForCount(issue.CommentCount))
 	if err != nil {
-		return false, err
+		return err
 	}
 	if len(comments) == 0 {
-		return false, nil
+		return nil
 	}
 
 	lastComment := comments[len(comments)-1]
-	return strings.EqualFold(lastComment.User.Login, login), nil
+	issue.LastComment = &lastComment
+	return nil
 }
 
 func (c *Client) listCommentsPage(ctx context.Context, owner, repo string, issueNumber, page int) ([]Comment, error) {
@@ -235,6 +275,30 @@ func commentPageForCount(count int) int {
 		return 1
 	}
 	return ((count - 1) / 100) + 1
+}
+
+func compileLastCommentPattern(pattern string) (*regexp.Regexp, error) {
+	pattern = strings.TrimSpace(pattern)
+	if pattern == "" {
+		return nil, nil
+	}
+
+	compiled, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, fmt.Errorf("compile last comment pattern: %w", err)
+	}
+	return compiled, nil
+}
+
+func LoginMatches(actual, wanted string) bool {
+	actual = normalizeLogin(actual)
+	wanted = normalizeLogin(wanted)
+	return actual != "" && wanted != "" && actual == wanted
+}
+
+func normalizeLogin(login string) string {
+	login = strings.ToLower(strings.TrimSpace(login))
+	return strings.TrimSuffix(login, "[bot]")
 }
 
 func hasAllLabels(labels []Label, names []string) bool {

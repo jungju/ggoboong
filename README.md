@@ -11,7 +11,9 @@
 - CLI 실행 시 issue comments 조회
 - 중복 댓글을 피하기 위해 이미 남긴 `ggo` 댓글이 있으면 중단
 - 고정 답변 댓글 작성
+- 파일에서 읽은 커스텀 댓글 작성
 - tag/label로 issue 검색
+- issue 검색 결과를 JSON으로 출력하고 필요하면 댓글까지 포함
 - `--dry-run`이면 실제 작성 없이 댓글 본문만 출력
 
 ## 설치
@@ -195,11 +197,66 @@ ggo issues --owner my-org --repo my-repo --tag idea --limit 20
 ggo issues --owner my-org --repo my-repo --tag idea --last-commenter-not ggoboong
 ```
 
+`ggoboong`과 `ggoboong[bot]`처럼 GitHub App bot suffix만 다른 login은 같은 작성자로 취급합니다.
+
+자동화에서 쓰려면 `--json`을 사용합니다. JSON 출력에는 `number`, `title`, `url`, `labels`, `state`, `lastCommenter`, `lastCommentAt`이 포함됩니다.
+
+```bash
+ggo issues \
+  --owner my-org \
+  --repo my-repo \
+  --tag idea \
+  --without-tag done \
+  --limit 20 \
+  --last-commenter-not ggoboong \
+  --json
+```
+
+댓글 전체까지 같이 받으려면 `--include-comments` 또는 `--comments`를 추가합니다. 이 플래그는 `--json`과 함께 사용합니다.
+
+```bash
+ggo issues --owner my-org --repo my-repo --tag idea --json --include-comments
+```
+
+마지막 댓글 본문으로 후보를 더 좁힐 수도 있습니다.
+
+```bash
+ggo issues --owner my-org --repo my-repo --last-comment-contains 개발
+ggo issues --owner my-org --repo my-repo --last-comment-matches "개발|구현"
+```
+
+최근에 업데이트된 issue만 보려면 `--updated-after`나 같은 뜻의 `--since`를 사용합니다. 값은 `YYYY-MM-DD` 또는 RFC3339 형식입니다.
+
+```bash
+ggo issues --owner my-org --repo my-repo --updated-after 2026-05-01
+```
+
 상태는 기본이 `open`이고, `closed`나 `all`도 사용할 수 있습니다.
 
 ```bash
 ggo issues --owner my-org --repo my-repo --state all --without-tag archived
 ```
+
+## 커스텀 댓글 작성
+
+파일에 적어둔 Markdown을 issue 댓글로 작성할 수 있습니다.
+
+```bash
+ggo comment --owner my-org --repo my-repo --issue 123 --body-file /tmp/comment.md
+```
+
+마지막 댓글이 이미 특정 GitHub 아이디가 남긴 댓글이면 중복 작성을 건너뛰려면 `--skip-if-last-commenter`를 사용합니다.
+
+```bash
+ggo comment \
+  --owner my-org \
+  --repo my-repo \
+  --issue 123 \
+  --body-file /tmp/comment.md \
+  --skip-if-last-commenter ggoboong
+```
+
+실제 작성 없이 본문만 확인하려면 `--dry-run`을 붙입니다. 설정 파일의 `bot.dry_run: true`도 `ggo comment`에 적용됩니다.
 
 ## 댓글 중복 방지
 

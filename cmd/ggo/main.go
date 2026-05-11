@@ -70,8 +70,32 @@ func newRootCommand() *cobra.Command {
 	issuesCmd.Flags().StringArrayVar(&issuesOpts.WithoutLabels, "without-label", nil, "Exclude issues with this label; repeat or comma-separate")
 	issuesCmd.Flags().StringArrayVar(&issuesOpts.WithoutLabels, "without-tag", nil, "Alias for --without-label")
 	issuesCmd.Flags().IntVar(&issuesOpts.Limit, "limit", 0, "Maximum number of issues to print; 0 means all")
+	issuesCmd.Flags().BoolVar(&issuesOpts.JSON, "json", false, "Print issues as JSON")
+	issuesCmd.Flags().BoolVar(&issuesOpts.IncludeComments, "include-comments", false, "Include issue comments in JSON output")
+	issuesCmd.Flags().BoolVar(&issuesOpts.IncludeComments, "comments", false, "Alias for --include-comments")
 	issuesCmd.Flags().StringVar(&issuesOpts.LastCommenterNot, "last-commenter-not", "", "Only include issues whose last comment is not by this GitHub user")
+	issuesCmd.Flags().StringVar(&issuesOpts.LastCommentContains, "last-comment-contains", "", "Only include issues whose last comment contains this text")
+	issuesCmd.Flags().StringVar(&issuesOpts.LastCommentMatches, "last-comment-matches", "", "Only include issues whose last comment matches this regular expression")
+	issuesCmd.Flags().StringVar(&issuesOpts.UpdatedAfter, "updated-after", "", "Only include issues updated after RFC3339 time or YYYY-MM-DD")
+	issuesCmd.Flags().StringVar(&issuesOpts.UpdatedAfter, "since", "", "Alias for --updated-after")
 	issuesCmd.Flags().StringVar(&issuesOpts.ConfigPath, "config", "", "Path to YAML config (default: ./ggo.yaml, then ~/.ggo/ggo.yaml)")
+
+	var commentOpts runner.CommentOptions
+	commentCmd := &cobra.Command{
+		Use:   "comment",
+		Short: "Create a custom comment on a GitHub issue",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			commentOpts.Stdout = cmd.OutOrStdout()
+			return runner.Comment(cmd.Context(), commentOpts)
+		},
+	}
+	commentCmd.Flags().StringVar(&commentOpts.Owner, "owner", "", "GitHub repository owner")
+	commentCmd.Flags().StringVar(&commentOpts.Repo, "repo", "", "GitHub repository name")
+	commentCmd.Flags().IntVar(&commentOpts.Issue, "issue", 0, "GitHub issue number")
+	commentCmd.Flags().StringVar(&commentOpts.BodyFile, "body-file", "", "Path to a Markdown file containing the comment body")
+	commentCmd.Flags().StringVar(&commentOpts.SkipIfLastCommenter, "skip-if-last-commenter", "", "Skip when the last comment is by this GitHub user")
+	commentCmd.Flags().StringVar(&commentOpts.ConfigPath, "config", "", "Path to YAML config (default: ./ggo.yaml, then ~/.ggo/ggo.yaml)")
+	commentCmd.Flags().BoolVar(&commentOpts.DryRun, "dry-run", false, "Print the comment body without creating it")
 
 	var setupOpts setup.Options
 	loginCmd := &cobra.Command{
@@ -88,7 +112,7 @@ func newRootCommand() *cobra.Command {
 	loginCmd.Flags().BoolVar(&setupOpts.DryRun, "dry-run-default", false, "Set bot.dry_run in ~/.ggo/ggo.yaml")
 	loginCmd.Flags().BoolVar(&setupOpts.Force, "force", false, "Overwrite existing ~/.ggo files")
 
-	rootCmd.AddCommand(runCmd, issuesCmd, loginCmd)
+	rootCmd.AddCommand(runCmd, issuesCmd, commentCmd, loginCmd)
 	return rootCmd
 }
 

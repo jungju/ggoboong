@@ -7,13 +7,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 type Comment struct {
-	ID   int64  `json:"id"`
-	User User   `json:"user"`
-	Body string `json:"body"`
-	URL  string `json:"html_url"`
+	ID        int64     `json:"id"`
+	User      User      `json:"user"`
+	Body      string    `json:"body"`
+	URL       string    `json:"html_url"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type User struct {
