@@ -2,15 +2,15 @@
 
 `ggo`는 GitHub 이것저것 처리해주는 꼬붕 CLI입니다.
 
-지금은 아주 단순합니다. GitHub issue를 읽고, 기존 댓글에 `ggo` marker가 없으면 정해진 답변 댓글을 하나 남깁니다. LLM, DB, 서버, Webhook, OAuth는 아직 없습니다.
+지금은 아주 단순합니다. GitHub issue를 읽고, 아직 `ggo`가 답변한 적이 없으면 정해진 댓글을 하나 남깁니다. LLM, DB, 서버, Webhook, OAuth는 아직 없습니다.
 
 ## 지금 하는 일
 
 - GitHub App installation token으로 인증
 - issue 조회
 - issue comments 조회
-- `<!-- ggo:v1 -->` marker가 있는 기존 댓글이 있으면 중단
-- marker가 없으면 고정 답변 댓글 작성
+- 이미 남긴 `ggo` 댓글이 있으면 중단
+- 없으면 고정 답변 댓글 작성
 - `--dry-run`이면 실제 작성 없이 댓글 본문만 출력
 
 ## 설치
@@ -85,7 +85,6 @@ github:
   private_key_path: ./github-app.private-key.pem
 
 bot:
-  marker: "<!-- ggo:v1 -->"
   dry_run: false
 ```
 
@@ -110,7 +109,6 @@ bot:
 ```bash
 GGO_INSTALLATION_ID=987654
 GGO_PRIVATE_KEY_PATH=./github-app.private-key.pem
-GGO_MARKER="<!-- ggo:v1 -->"
 GGO_DRY_RUN=false
 GGO_CONFIG=./ggo.yaml
 ```
@@ -146,11 +144,11 @@ ggo run --owner my-org --repo my-repo --issue 123 --config ./ggo.yaml
 
 ## 댓글 중복 방지
 
-작성되는 댓글 본문 첫 줄에 marker가 포함됩니다.
+`ggo`는 자기가 남긴 댓글인지 알아보기 위해 댓글 첫 줄에 숨김 HTML 주석을 넣습니다. 이건 GitHub 공식 기능이나 별도 설정 이름이 아니라, CLI 내부에서 중복 댓글을 피하려고 쓰는 작은 표식입니다.
 
 ```text
 <!-- ggo:v1 -->
 안녕하세요! ggo가 이 이슈를 확인했습니다.
 ```
 
-기존 댓글 중 하나라도 같은 marker를 포함하면 새 댓글을 만들지 않고 종료합니다.
+기존 댓글 중 하나라도 같은 숨김 주석을 포함하면 새 댓글을 만들지 않고 종료합니다.

@@ -87,7 +87,6 @@ func Login(opts Options) error {
 			PrivateKeyPath: "./" + privateKeyFileName,
 		},
 		Bot: config.BotConfig{
-			Marker: opts.Marker,
 			DryRun: opts.DryRun,
 		},
 	}

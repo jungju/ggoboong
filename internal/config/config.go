@@ -29,7 +29,7 @@ type GitHubConfig struct {
 }
 
 type BotConfig struct {
-	Marker string `yaml:"marker"`
+	Marker string `yaml:"marker,omitempty"`
 	DryRun bool   `yaml:"dry_run"`
 }
 

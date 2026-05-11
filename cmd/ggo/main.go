@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"ggo/internal/config"
 	"ggo/internal/envfile"
 	"ggo/internal/runner"
 	"ggo/internal/setup"
@@ -36,7 +35,7 @@ func newRootCommand() *cobra.Command {
 	var opts runner.Options
 	runCmd := &cobra.Command{
 		Use:   "run",
-		Short: "Create a marker comment on a GitHub issue",
+		Short: "Create a reply comment on a GitHub issue",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.Stdout = cmd.OutOrStdout()
 			return runner.Run(cmd.Context(), opts)
@@ -61,7 +60,6 @@ func newRootCommand() *cobra.Command {
 	}
 	loginCmd.Flags().Int64Var(&setupOpts.InstallationID, "installation-id", 0, "GitHub App installation ID")
 	loginCmd.Flags().StringVar(&setupOpts.PrivateKeyPath, "private-key", "", "Path to GitHub App private key PEM")
-	loginCmd.Flags().StringVar(&setupOpts.Marker, "marker", "", "Comment marker (default: "+config.DefaultMarker+")")
 	loginCmd.Flags().BoolVar(&setupOpts.DryRun, "dry-run-default", false, "Set bot.dry_run in ~/.ggo/ggo.yaml")
 	loginCmd.Flags().BoolVar(&setupOpts.Force, "force", false, "Overwrite existing ~/.ggo files")
 
