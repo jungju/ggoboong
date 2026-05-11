@@ -13,14 +13,16 @@ import (
 )
 
 type IssuesOptions struct {
-	Owner         string
-	Repo          string
-	State         string
-	Labels        []string
-	WithoutLabels []string
-	ConfigPath    string
-	Stdout        io.Writer
-	HTTPClient    *http.Client
+	Owner            string
+	Repo             string
+	State            string
+	Labels           []string
+	WithoutLabels    []string
+	Limit            int
+	LastCommenterNot string
+	ConfigPath       string
+	Stdout           io.Writer
+	HTTPClient       *http.Client
 }
 
 func Issues(ctx context.Context, opts IssuesOptions) error {
@@ -45,9 +47,11 @@ func Issues(ctx context.Context, opts IssuesOptions) error {
 	}
 
 	issues, err := issueClient.ListIssues(ctx, opts.Owner, opts.Repo, githubissue.ListIssuesOptions{
-		State:         opts.State,
-		Labels:        normalizeLabels(opts.Labels),
-		WithoutLabels: normalizeLabels(opts.WithoutLabels),
+		State:            opts.State,
+		Labels:           normalizeLabels(opts.Labels),
+		WithoutLabels:    normalizeLabels(opts.WithoutLabels),
+		Limit:            opts.Limit,
+		LastCommenterNot: strings.TrimSpace(opts.LastCommenterNot),
 	})
 	if err != nil {
 		return fmt.Errorf("list issues: %w", err)
@@ -78,10 +82,13 @@ func validateIssuesOptions(opts IssuesOptions) error {
 	}
 	switch opts.State {
 	case "", "open", "closed", "all":
-		return nil
 	default:
 		return fmt.Errorf("--state must be one of open, closed, all")
 	}
+	if opts.Limit < 0 {
+		return fmt.Errorf("--limit must be 0 or greater")
+	}
+	return nil
 }
 
 func normalizeLabels(values []string) []string {

@@ -11,42 +11,21 @@ import (
 
 type Comment struct {
 	ID   int64  `json:"id"`
+	User User   `json:"user"`
 	Body string `json:"body"`
 	URL  string `json:"html_url"`
+}
+
+type User struct {
+	Login string `json:"login"`
 }
 
 func (c *Client) ListComments(ctx context.Context, owner, repo string, issueNumber int) ([]Comment, error) {
 	var allComments []Comment
 	for page := 1; ; page++ {
-		url := fmt.Sprintf("%s/repos/%s/%s/issues/%d/comments?per_page=100&page=%d", c.baseURL, owner, repo, issueNumber, page)
-		req, err := c.newRequest(ctx, http.MethodGet, url, nil)
+		comments, err := c.listCommentsPage(ctx, owner, repo, issueNumber, page)
 		if err != nil {
-			return nil, fmt.Errorf("create comments request: %w", err)
-		}
-
-		resp, err := c.httpClient.Do(req)
-		if err != nil {
-			return nil, fmt.Errorf("request comments for issue #%d: %w", issueNumber, err)
-		}
-
-		body, readErr := io.ReadAll(resp.Body)
-		closeErr := resp.Body.Close()
-		if closeErr != nil && readErr == nil {
-			readErr = closeErr
-		}
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			if readErr != nil {
-				return nil, fmt.Errorf("request comments for issue #%d failed with status %s and unreadable response body: %w", issueNumber, resp.Status, readErr)
-			}
-			return nil, fmt.Errorf("request comments for issue #%d failed with status %s: %s", issueNumber, resp.Status, string(body))
-		}
-		if readErr != nil {
-			return nil, fmt.Errorf("read comments response: %w", readErr)
-		}
-
-		var comments []Comment
-		if err := json.Unmarshal(body, &comments); err != nil {
-			return nil, fmt.Errorf("parse comments response: %w", err)
+			return nil, err
 		}
 		allComments = append(allComments, comments...)
 		if len(comments) < 100 {

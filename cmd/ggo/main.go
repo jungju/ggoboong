@@ -69,6 +69,8 @@ func newRootCommand() *cobra.Command {
 	issuesCmd.Flags().StringArrayVar(&issuesOpts.Labels, "tag", nil, "Alias for --label")
 	issuesCmd.Flags().StringArrayVar(&issuesOpts.WithoutLabels, "without-label", nil, "Exclude issues with this label; repeat or comma-separate")
 	issuesCmd.Flags().StringArrayVar(&issuesOpts.WithoutLabels, "without-tag", nil, "Alias for --without-label")
+	issuesCmd.Flags().IntVar(&issuesOpts.Limit, "limit", 0, "Maximum number of issues to print; 0 means all")
+	issuesCmd.Flags().StringVar(&issuesOpts.LastCommenterNot, "last-commenter-not", "", "Only include issues whose last comment is not by this GitHub user")
 	issuesCmd.Flags().StringVar(&issuesOpts.ConfigPath, "config", "", "Path to YAML config (default: ./ggo.yaml, then ~/.ggo/ggo.yaml)")
 
 	var setupOpts setup.Options

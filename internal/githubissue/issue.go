@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -35,6 +36,7 @@ type Issue struct {
 	State       string    `json:"state"`
 	URL         string    `json:"html_url"`
 	Labels      []Label   `json:"labels"`
+	Comments    int       `json:"comments"`
 	PullRequest *struct{} `json:"pull_request,omitempty"`
 }
 
@@ -43,9 +45,11 @@ type Label struct {
 }
 
 type ListIssuesOptions struct {
-	State         string
-	Labels        []string
-	WithoutLabels []string
+	State            string
+	Labels           []string
+	WithoutLabels    []string
+	Limit            int
+	LastCommenterNot string
 }
 
 func (c *Client) GetIssue(ctx context.Context, owner, repo string, number int) (*Issue, error) {
@@ -81,16 +85,23 @@ func (c *Client) GetIssue(ctx context.Context, owner, repo string, number int) (
 }
 
 func (c *Client) ListIssues(ctx context.Context, owner, repo string, opts ListIssuesOptions) ([]Issue, error) {
+	if opts.Limit < 0 {
+		return nil, fmt.Errorf("limit must be 0 or greater")
+	}
+
 	state := opts.State
 	if state == "" {
 		state = "open"
 	}
 
+	lastCommenterNot := strings.TrimSpace(opts.LastCommenterNot)
+	perPage := perPageForLimit(opts.Limit)
+
 	var allIssues []Issue
 	for page := 1; ; page++ {
 		query := url.Values{}
 		query.Set("state", state)
-		query.Set("per_page", "100")
+		query.Set("per_page", strconv.Itoa(perPage))
 		query.Set("page", fmt.Sprintf("%d", page))
 		if len(opts.Labels) > 0 {
 			query.Set("labels", strings.Join(opts.Labels, ","))
@@ -137,15 +148,93 @@ func (c *Client) ListIssues(ctx context.Context, owner, repo string, opts ListIs
 			if hasAnyLabel(issue.Labels, opts.WithoutLabels) {
 				continue
 			}
+			if lastCommenterNot != "" {
+				matches, err := c.lastCommenterMatches(ctx, owner, repo, issue, lastCommenterNot)
+				if err != nil {
+					return nil, err
+				}
+				if matches {
+					continue
+				}
+			}
 			allIssues = append(allIssues, issue)
+			if opts.Limit > 0 && len(allIssues) >= opts.Limit {
+				return allIssues, nil
+			}
 		}
 
-		if len(issues) < 100 {
+		if len(issues) < perPage {
 			break
 		}
 	}
 
 	return allIssues, nil
+}
+
+func (c *Client) lastCommenterMatches(ctx context.Context, owner, repo string, issue Issue, login string) (bool, error) {
+	if issue.Comments == 0 {
+		return false, nil
+	}
+
+	comments, err := c.listCommentsPage(ctx, owner, repo, issue.Number, commentPageForCount(issue.Comments))
+	if err != nil {
+		return false, err
+	}
+	if len(comments) == 0 {
+		return false, nil
+	}
+
+	lastComment := comments[len(comments)-1]
+	return strings.EqualFold(lastComment.User.Login, login), nil
+}
+
+func (c *Client) listCommentsPage(ctx context.Context, owner, repo string, issueNumber, page int) ([]Comment, error) {
+	url := fmt.Sprintf("%s/repos/%s/%s/issues/%d/comments?per_page=100&page=%d", c.baseURL, owner, repo, issueNumber, page)
+	req, err := c.newRequest(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create comments request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request comments for issue #%d: %w", issueNumber, err)
+	}
+
+	body, readErr := io.ReadAll(resp.Body)
+	closeErr := resp.Body.Close()
+	if closeErr != nil && readErr == nil {
+		readErr = closeErr
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if readErr != nil {
+			return nil, fmt.Errorf("request comments for issue #%d failed with status %s and unreadable response body: %w", issueNumber, resp.Status, readErr)
+		}
+		return nil, fmt.Errorf("request comments for issue #%d failed with status %s: %s", issueNumber, resp.Status, string(body))
+	}
+	if readErr != nil {
+		return nil, fmt.Errorf("read comments response: %w", readErr)
+	}
+
+	var comments []Comment
+	if err := json.Unmarshal(body, &comments); err != nil {
+		return nil, fmt.Errorf("parse comments response: %w", err)
+	}
+
+	return comments, nil
+}
+
+func perPageForLimit(limit int) int {
+	if limit > 0 && limit < 100 {
+		return limit
+	}
+	return 100
+}
+
+func commentPageForCount(count int) int {
+	if count <= 0 {
+		return 1
+	}
+	return ((count - 1) / 100) + 1
 }
 
 func hasAllLabels(labels []Label, names []string) bool {

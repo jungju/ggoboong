@@ -183,6 +183,18 @@ ggo issues --owner my-org --repo my-repo --tag bug --tag "help wanted"
 ggo issues --owner my-org --repo my-repo --tag bug --without-tag done
 ```
 
+가져올 issue 개수는 `--limit`으로 제한할 수 있습니다. `0`이면 제한 없이 가져옵니다.
+
+```bash
+ggo issues --owner my-org --repo my-repo --tag idea --limit 20
+```
+
+마지막 댓글 작성자가 특정 GitHub 아이디가 아닌 issue만 찾으려면 `--last-commenter-not`을 사용합니다. 댓글이 없는 issue도 결과에 포함됩니다.
+
+```bash
+ggo issues --owner my-org --repo my-repo --tag idea --last-commenter-not ggoboong
+```
+
 상태는 기본이 `open`이고, `closed`나 `all`도 사용할 수 있습니다.
 
 ```bash
